@@ -1,0 +1,208 @@
+---
+title: "Swiftkey Capstone Project Milestone 1"
+author: "Deepti Singh Chauhan"
+date: "24/08/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This project is done under Data Science Specialization on Coursera. The project is to create a Shiny App that uses a predictive algorithm that recommend the most likely words that would follow a particular text phrase typed by user based on previous 1,2 or 3 words typed. This is the 1st Milestone in the project and the scope of this milestone is to download and clean the data. Some exploratory data analysis is done on the data which is represented through various plots. 
+
+## Data
+
+The input set is represented by three files that contain text messages from different web sources (blogs, news and twitter). The content is similar, but the texts (specially in twitter messages that are often typed on smartphones) are characterized by the use of slang, emoticons, special characters, and so on.
+
+This increase the difficult of the typical treatment problems in the field of NLP such as the stamming (simplification of singular/plural forms), punctuation, profanity filtering, elimination of words that do not belong to the specific natural language.
+
+Step 1: Loading the required libraries and the data
+The dataset is available for download as a zip file.[link](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip) Check to see if the Corpora file already exists; if not, download the file from and unzip the folder to extract the raw data into the selected working directory.
+```{r echo=FALSE, message=FALSE, warning=FALSE, results="hide"}
+library(NLP)
+library(tm)
+library(SnowballC)
+library(RWeka)
+library(dplyr)
+library(quanteda)
+library(tokenizers)
+#Checking if the data already exists otherwise download it from source
+if (!file.exists("F:/Work/R Programming/Coursera/Data Science Specialization/Capstone Project/datascience-capstone-project-swiftkey/Coursera-SwiftKey.zip"))
+{temp <- tempfile() 
+download.file(url = "https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip", 
+              destfile = "F:/Work/R Programming/Coursera/Data Science Specialization/Capstone Project/datascience-capstone-project-swiftkey/Coursera-SwiftKey.zip", 
+              quiet = FALSE,  method="auto") 
+unzip(zipfile = "F:/Work/R Programming/Coursera/Data Science Specialization/Capstone Project/datascience-capstone-project-swiftkey/Coursera-SwiftKey.zip", 
+      exdir = "F:/Work/R Programming/Coursera/Data Science Specialization/Capstone Project/datascience-capstone-project-swiftkey/Coursera-SwiftKey", overwrite = TRUE)
+}
+
+#Reading the data into R to explore the data we are dealing with
+twitter_data <- readLines("F:/Work/R Programming/Coursera/Data Science Specialization/Capstone Project/datascience-capstone-project-swiftkey/Coursera-SwiftKey/final/en_US/en_US.twitter.txt")
+blogs_data <- readLines("F:/Work/R Programming/Coursera/Data Science Specialization/Capstone Project/datascience-capstone-project-swiftkey/Coursera-SwiftKey/final/en_US/en_US.blogs.txt")
+news_data <- readLines("F:/Work/R Programming/Coursera/Data Science Specialization/Capstone Project/datascience-capstone-project-swiftkey/Coursera-SwiftKey/final/en_US/en_US.news.txt")
+
+blogs_char <- NULL; twitter_char <- NULL; news_char <- NULL
+for (i in (1:length(blogs_data)))   { blogs_char[i] <- nchar(blogs_data[i]) }
+for (i in (1:length(twitter_data))) { twitter_char[i] <- nchar(twitter_data[i]) }
+for (i in (1:length(news_data)))    { news_char[i] <- nchar(news_data[i]) }
+```
+Step 2: Exploratory Analysis on the data and Creating Sample
+Showing the basic statistical information about the information loaded. A sample is created from the complete data. 10% data is fed into the sample and the sample statistics are displayed.   
+
+Observations: 
+1. The Twitter dataset is smaller by characters and by words, but much longer by lines. 
+2. The news dataset has the longest average word length whereas the Twitter dataset has the shortest.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Create a matrix of summary statistics
+summary_statistics <-matrix(c(object.size(blogs_data), length(blogs_data), max(nchar(blogs_data)), sum(blogs_char),
+                              object.size(news_data),  length(news_data),  max(nchar(news_data)),  sum(news_char),
+                              object.size(twitter_data), length(twitter_data), max(nchar(twitter_data)),    sum(twitter_char)), 
+                            nrow=3, ncol=4, byrow=TRUE)
+colnames(summary_statistics) <- c("File Size", "Length", "Max Char per Line", "Total Characters")
+rownames(summary_statistics) <- c("Blogs", "News", "Twitter"); 
+print("Summary of All Data")
+print(summary_statistics)
+
+statistics_sum <- matrix(c(fivenum(blogs_char), round(mean(blogs_char),digits = 0), 
+                           fivenum(news_char), round(mean(news_char),digits = 0), 
+                           fivenum(twitter_char), round(mean(twitter_char),digits = 0)), 
+                         nrow=3, ncol=6, byrow=TRUE)
+colnames(statistics_sum) <- c("Minimum", "25th Quantile", "Median", "75th Quantile", "Maximum", "Average") 
+rownames(statistics_sum) <- c("Blogs", "News", "Twitter"); 
+print("Statistical Summary of All Data")
+print(statistics_sum)
+
+summary_plot <- par(mfrow=c(1,3), mar=c(3,3,1,1), oma=c(0,0,3,1))
+barplot(summary_statistics[,1], main = "File Size (Mb in Millions)", col=c(rgb(0.1,0.1,0.7,0.2),rgb(0.8,0.1,0.3,0.2),rgb(0.4,0.8,1,0.2)), border=c(rgb(0.1,0.1,0.7,0.5),rgb(0.8,0.1,0.3,0.5),rgb(0.4,0.8,1,0.5)))
+barplot(summary_statistics[,2], main = "Number of Lines", col=c(rgb(0.1,0.1,0.7,0.2),rgb(0.8,0.1,0.3,0.2),rgb(0.4,0.8,1,0.2)), border=c(rgb(0.1,0.1,0.7,0.5),rgb(0.8,0.1,0.3,0.5),rgb(0.4,0.8,1,0.5)))
+barplot(summary_statistics[,3], main = "Max Char Per Line", col=c(rgb(0.1,0.1,0.7,0.2),rgb(0.8,0.1,0.3,0.2),rgb(0.4,0.8,1,0.2)), border=c(rgb(0.1,0.1,0.7,0.5),rgb(0.8,0.1,0.3,0.5),rgb(0.4,0.8,1,0.5)))
+mtext("BarPlot of Summary Statistics for All Data", side=3, line=1, outer=TRUE, cex=1, font=2)
+par(summary_plot)
+
+box_plots <- par(mfrow=c(1,3), mar=c(3,3,1,1), oma=c(0,0,3,1))
+boxplot(blogs_char, outcol=rgb(0.1,0.1,0.7,0.5), boxfill=rgb(0.1,0.1,0.7,0.2), main="Blogs", boxcol=rgb(0.1,0.1,0.7,0.5),whiskcol=rgb(0.1,0.1,0.7,0.5),staplecol=rgb(0.1,0.1,0.7,0.5),medcol=rgb(0.1,0.1,0.7,0.5), main="Blogs", ylim=c(0,800))
+boxplot(news_char,outcol=rgb(0.4,0.8,1,0.5), boxfill=rgb(0.4,0.8,1,0.2), main="News", boxcol=rgb(0.4,0.8,1,0.5),whiskcol=rgb(0.4,0.8,1,0.5),staplecol=rgb(0.4,0.8,1,0.5),medcol=rgb(0.4,0.8,1,0.5), main="Twitter", ylim=c(0,800))
+boxplot(twitter_char, outcol=rgb(0.8,0.1,0.3,0.5), boxfill=rgb(0.8,0.1,0.3,0.2), main="Twitter", boxcol=rgb(0.8,0.1,0.3,0.5),whiskcol=rgb(0.8,0.1,0.3,0.5),staplecol=rgb(0.8,0.1,0.3,0.5),medcol=rgb(0.8,0.1,0.3,0.5), main="News", ylim=c(0,800))
+mtext("BoxPlots for Characters per Line in Raw Data", side=3, line=1, outer=TRUE, cex=1, font=2)
+par(box_plots)
+
+set.seed(2408)
+blog_sample <- sample(blogs_data, size = length(blogs_data)/10)
+news_sample <- sample(news_data, size = length(news_data)/10)
+twitter_sample <- sample(twitter_data, size = length(twitter_data)/10)
+
+#Create a matrix of summary statistics
+sample_summary <-matrix(c(object.size(blog_sample), length(blog_sample), max(nchar(blog_sample)),
+                          object.size(news_sample), length(news_sample), max(nchar(news_sample)),
+                          object.size(twitter_sample), length(twitter_sample), max(nchar(twitter_sample))), 
+                        nrow=3, ncol=3, byrow=TRUE); 
+colnames(sample_summary) <- c("FileSize", "Length", "MaxChar");  
+rownames(sample_summary) <- c("Blogs", "News", "Twitter"); 
+print(sample_summary)
+
+#Create a Multi-panel Barplot
+summary_plot <- par(mfrow=c(1,3), mar=c(3,3,1,1), oma=c(0,0,3,1))
+barplot(sample_summary[,1], main = "File Size (Mb in Millions)", col=c(rgb(0.1,0.1,0.7,0.2),rgb(0.8,0.1,0.3,0.2),rgb(0.4,0.8,1,0.2)), border=c(rgb(0.1,0.1,0.7,0.5),rgb(0.8,0.1,0.3,0.5),rgb(0.4,0.8,1,0.5)))
+barplot(sample_summary[,2], main = "Number of Lines", col=c(rgb(0.1,0.1,0.7,0.2),rgb(0.8,0.1,0.3,0.2),rgb(0.4,0.8,1,0.2)), border=c(rgb(0.1,0.1,0.7,0.5),rgb(0.8,0.1,0.3,0.5),rgb(0.4,0.8,1,0.5)))
+barplot(sample_summary[,3], main = "Max Char Per Line", col=c(rgb(0.1,0.1,0.7,0.2),rgb(0.8,0.1,0.3,0.2),rgb(0.4,0.8,1,0.2)), border=c(rgb(0.1,0.1,0.7,0.5),rgb(0.8,0.1,0.3,0.5),rgb(0.4,0.8,1,0.5)))
+mtext("BarPlot of Summary Statistics for Sample Data", side=3, line=1, outer=TRUE, cex=1, font=2)
+par(summary_plot)
+
+mergedata <- paste(blog_sample[1:50000], news_sample[1:50000], twitter_sample[1:50000])
+
+#Convert to a "volatile" corpus
+corpus  <- VCorpus(VectorSource(mergedata))
+print("Statistics Before Cleaning")
+print(matrix(c("Statistic", "File Size", "Length", "Max Char per Line", "Corpus", 
+         object.size(corpus ), length(corpus ), max(nchar(corpus ))), nrow=2, ncol=4, byrow=TRUE))
+```
+Step 3: Cleaning the sampled data
+In particular we will:
+a. Remove extra white spaces 
+b. Eliminate punctuation
+c. Eliminate stop words in english language
+d. Convert all text in lower case
+e. Eliminate the variations of the words and reduce them to a base form (lemma).
+f. Eliminate profanities
+g. Eliminate the numbers
+h. Eliminate the URLs
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Remove any whitespace
+corpus  <- tm_map(corpus, stripWhitespace)
+#Remove any punctuation
+corpus  <- tm_map(corpus, removePunctuation)
+#Remove any stop words
+corpus  <- tm_map(corpus, removeWords, stopwords("english"))
+#Convert to lower case
+corpus  <- tm_map(corpus, content_transformer(tolower))
+
+corpus  <- tm_map(corpus , stemDocument,language = ("english"))
+print("Statistics After Cleaning")
+print(matrix(c("Statistic", "File Size", "Length", "Max Char per Line", "Corpus", 
+         object.size(corpus ), length(corpus ), max(nchar(corpus ))), nrow=2, ncol=4, byrow=TRUE))
+
+# Remove profanity words
+profanity_vector <- as.vector(c("shit", "fuck", "ass", "asshole", "hell", 
+                                "bitch", "damn", "crap", "piss", "dick", "darn",
+                                "pussy", "fag", "cock", "bastard", "slut", "douche"))
+corpus <- tm_map(corpus , removeWords, profanity_vector)
+
+#corpus <- gsub("[[:digit:]]+","", corpus)
+#corpus <- gsub("http\\w+","", corpus)
+corpus <- tm_map(corpus, content_transformer(function(corpus) gsub(corpus, pattern = "http\\w+", replacement = "")))
+corpus <- tm_map(corpus, content_transformer(function(corpus) gsub(corpus, pattern = "[[:digit:]]+", replacement = "")))
+#Remove any numbers or digits
+corpus  <- tm_map(corpus, removeNumbers)
+```
+Step 4: Tokenizing data into 1,2,3 and 4-grams 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+gc()
+uniGramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 1, max = 1))
+biGramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+triGramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+#quadGramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 4, max = 4))
+
+uniWord <- TermDocumentMatrix(corpus, control = list(tokenize = uniGramTokenizer))
+biWords <- TermDocumentMatrix(corpus, control = list(tokenize = biGramTokenizer))
+triWords <- TermDocumentMatrix(corpus, control = list(tokenize = triGramTokenizer))
+#quadWords <- TermDocumentMatrix(corpus, control = list(tokenize = quadGramTokenizer))
+
+calcFrequency <- function(gramTDM){
+        freqTerms <- findFreqTerms(gramTDM, lowfreq = 50)
+        freq <- rowSums(as.matrix(gramTDM[freqTerms,]))
+        freq <- data.frame(word=names(freq), freq=freq)
+        freq[order(-freq$freq), ][1:15, ]
+}
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+unigram <- calcFrequency(uniWord)
+par(mar=c(5,3,1,1))
+barplot(unigram$freq, names.arg=unigram$word, cex.names=0.8,main="The 15 most frequent unigrams", col=rgb(0.1,0.1,0.7,0.2), border=rgb(0.1,0.1,0.7,0.5),las=2)
+unigram[1:15, ]
+
+bigram <- calcFrequency(biWords)
+barplot(bigram$freq, names.arg=bigram$word, cex.names=0.8,main="The 15 most frequent bigrams", col=rgb(0.8,0.1,0.3,0.2), border=rgb(0.8,0.1,0.3,0.5),las=2)
+bigram[1:15, ]
+
+trigram <- calcFrequency(triWords)
+barplot(trigram$freq, names.arg=trigram$word, cex.names=0.8,main="The 15 most frequent trigrams", col=rgb(0.4,0.8,1,0.2), border=rgb(0.4,0.8,1,0.5),las=2)
+trigram[1:15, ]
+
+#quadgram <- calcFrequency(quadWords)
+#barplot(quadgram$freq, names.arg=quadgram$word, cex.names=0.8,main="The 15 most frequent quadgrams", col=rgb(0.4,1,0.4,0.2), border=rgb(0.4,1,0.4,0.5),las=2)
+#quadgram[1:15, ]
+```
+
+## Next Steps and intervention strategy
+
+The idea is to use the ngrams to make predictions about the words that follow a certain phrase that the user typed. In particular, it will consider the last 3 typed words (or less) and will check if there is a four-gram which contains the first three words the same as those typed. If it does not find a four-gram will be sought the trigrams with the first two words equal to the latest typed words. And so on up to propose the single most frequent words (unigrams).
+
+With this in mind the next steps will be aimed at finding a representation of the n-grams in line with the objectives set and to develop a predictive model to use to determine the next words from a set of words typed by the user.

@@ -1,0 +1,12 @@
+name: PredictiveTextApp
+title: PredictiveTextApp
+username:
+account: deeptichauhan
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2727828
+bundleId: 3575405
+url: https://deeptichauhan.shinyapps.io/PredictiveTextApp/
+when: 1598873868.81445
+asMultiple: FALSE
+asStatic: FALSE
