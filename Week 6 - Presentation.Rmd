@@ -1,0 +1,45 @@
+---
+title: "Text Prediction Model"
+author: "Deepti Singh Chauhan"
+date: "2020-08-31"
+output: slidy_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Background {.smaller}
+
+This project is done under Data Science Specialization on Coursera. The project is to create a Shiny App that uses a predictive algorithm that recommends the most likely words that would follow a particular text phrase typed by the user based on previous 1,2 or 3 words typed. The link for the app is - [https://deeptichauhan.shinyapps.io/PredictiveTextApp/](https://deeptichauhan.shinyapps.io/PredictiveTextApp/)
+
+
+## How the model works {.smaller}
+
+The input set is represented by three files that contain text messages from different web sources (blogs, news and twitter). The content is similar, but the texts (specially in twitter messages that are often typed on smartphones) are characterized by the use of slang, emoticons, special characters, and so on. The model is based off of the so called "Stupid Back-off model", which predicts the next word by finding a similar history of words, and then selecting the word which is most common based on the previous history. For example:
+
+- *"What do you think of president"* may be typed into the search box
+- The model will look at the 3 most recent words, in this case: *"think of president"*
+- It will then search the training data for any time these three words have occurred in a row
+- It will then suggest what ever the top 3 most common preceding words are
+- If the model is not able to find those three words ever occurring, it will back of and search for *"of president"*, if no matches are found it will further back-off and search for *"president"*
+
+
+## Model accuracy {.smaller}
+
+The model was tested on 1,000 test cases. The model was able to obtain an accuracy rate of 20% based on one of the top 3 predictions being correct.
+
+<img src="F:\Work\R Programming\Coursera\Data Science Specialization\Capstone Project\datascience-capstone-project-swiftkey\Screenshot.png" width="1200" height="500" />
+
+
+
+## Other considerations {.smaller}
+
+The model can be used at [ https://deeptichauhan.shinyapps.io/PredictiveTextApp/]( https://deeptichauhan.shinyapps.io/PredictiveTextApp/)
+
+**Additional Notes**
+
+- The model was tested by keeping stop words and removing stop words. In the end, a decision was made to keep stop words as it improved overall model accuracy. However by keeping stop-words it was noted the model was often less "useful", it it would predict high percentage stop words.
+- All code can be found at [https://github.com/deeptischauhan/datascience-capstone-project-swiftkey](https://github.com/deeptischauhan/datascience-capstone-project-swiftkey)
+
+## Thank You
